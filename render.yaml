@@ -1,0 +1,41 @@
+services:
+  - type: web
+    runtime: node
+    name: chirpchat-api
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: MONGO_URI
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_SECURE
+        value: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: CLIENT_ORIGIN
+        sync: false
+      - key: PUBLIC_SERVER_URL
+        sync: false
+      - key: UPLOADS_DIR
+        value: /var/data/chirpchat-uploads
+      - key: UPLOAD_MAX_FILE_SIZE_MB
+        value: 15
+    disk:
+      name: chirpchat-uploads
+      mountPath: /var/data/chirpchat-uploads
+      sizeGB: 1

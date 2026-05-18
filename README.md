@@ -1,50 +1,111 @@
-# Welcome to your Expo app 👋
+# ChirpChat
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+ChirpChat is a production-oriented Expo chat client paired with a Node.js, Express, MongoDB, and Socket.IO backend. The app supports:
 
-## Get started
+- Email OTP registration, password reset, and password change
+- Profile management with image uploads
+- Friend requests and blocking
+- Real-time chat with typing state, delivery status, read status, and file/image attachments
+- Render-ready backend deployment and Expo/EAS mobile release flow
 
-1. Install dependencies
+## Project structure
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```text
+.
+├── app/                    Expo Router screens
+├── components/             Shared UI components
+├── constants/              Theme definitions
+├── context/                Auth and theme providers
+├── services/               API, socket, and storage helpers
+└── server/                 Express + MongoDB + Socket.IO backend
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Local development
 
-## Learn more
+### 1. Install dependencies
 
-To learn more about developing your project with Expo, look at the following resources:
+```bash
+npm install
+npm --prefix server install
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### 2. Configure environment variables
 
-## Join the community
+Client:
 
-Join our community of developers creating universal apps.
+```bash
+cp .env.example .env
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Server:
+
+```bash
+cp server/.env.example server/.env
+```
+
+Set:
+
+- `EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_SOCKET_URL` to your backend URL for production builds
+- `MONGO_URI`, `AUTH_SECRET`, and SMTP settings in `server/.env`
+
+### 3. Run the backend
+
+```bash
+npm run server:start
+```
+
+### 4. Run the Expo app
+
+```bash
+npm start
+```
+
+## Quality checks
+
+```bash
+npm run lint
+npm run typecheck
+npm run server:test
+npm run check
+```
+
+## Render deployment
+
+The repo includes [render.yaml](./render.yaml) and a `/health` endpoint for Render health checks.
+
+Important production note:
+
+- The backend stores uploaded files on disk.
+- Render's default filesystem is ephemeral.
+- Use the persistent disk configured in `render.yaml`, or uploads will disappear after redeploys/restarts.
+
+Required backend environment variables:
+
+- `MONGO_URI`
+- `AUTH_SECRET`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_SECURE`
+- `SMTP_USER`
+- `SMTP_PASS`
+- `SMTP_FROM`
+- `CLIENT_ORIGIN`
+- `PUBLIC_SERVER_URL`
+
+## Expo / EAS release
+
+The repo includes [eas.json](./eas.json) with `development`, `preview`, and `production` profiles.
+
+Before your first store build:
+
+1. Update `android.package` and `ios.bundleIdentifier` in [app.json](./app.json) if you need app-specific identifiers.
+2. Set `EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_SOCKET_URL` for the production backend.
+3. Run `eas login`.
+4. Run `eas build:configure` if Expo asks to link the project.
+5. Build with `eas build --platform android --profile production` and/or `eas build --platform ios --profile production`.
+
+## Security and production notes
+
+- Secrets are excluded from git with `.gitignore` and `.env.example` templates are provided instead.
+- The backend now supports strict origin allowlisting, proxy-aware file URLs, health checks, file type filtering, and safer request limits.
+- Uploads are kept out of source control except for `server/uploads/.gitkeep`.

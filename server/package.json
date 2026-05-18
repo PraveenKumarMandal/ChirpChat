@@ -1,0 +1,29 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "check": "node --check server.js && node --check utils/auth.js && node --check utils/mailer.js && node --check models/User.js && node --check models/Message.js && node --check models/FriendRequest.js && node --check models/EmailOtp.js",
+    "test": "npm run check"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "mongodb": "^7.2.0",
+    "mongoose": "^9.5.0",
+    "multer": "^2.1.1",
+    "nodemailer": "^7.0.10",
+    "socket.io": "^4.8.3"
+  }
+}
