@@ -29,9 +29,9 @@ export default function Index() {
     <AppScreen style={styles.centered}>
       <View style={styles.content}>
         <Text style={styles.brand}>ChirpChat</Text>
-        <Text style={styles.title}>Private conversations, presented beautifully.</Text>
+        <Text style={styles.title}>Connect privately. Chat freely.</Text>
         <Text style={styles.subtitle}>
-          Secure chats, profile controls, presence visibility, and a cleaner experience across every screen.
+          A modern way to connect, share, and chat freely with complete privacy.
         </Text>
 
         <AppCard>
