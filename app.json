@@ -14,6 +14,18 @@
     "updates": {
       "fallbackToCacheTimeout": 0
     },
+
+     "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
+    },
+
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+
+    
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.chirpchat.app",
@@ -24,7 +36,7 @@
     "android": {
       "package": "com.chirpchat.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#F2F2F5",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -53,9 +65,9 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#FFFFFF",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#050505"
           }
         }
       ],
@@ -64,6 +76,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "77564ec6-ed7d-43bf-95ed-dff8cc38e9fc"
+      }
     }
   }
 }

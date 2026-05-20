@@ -656,7 +656,7 @@ const createStyles = (theme: ReturnType<typeof useTheme>['theme']) =>
       fontWeight: '700',
     },
     myMessageTime: {
-      color: theme.mode === 'dark' ? 'rgba(7, 36, 46, 0.74)' : theme.colors.textSoft,
+      color: theme.mode === 'dark' ? 'rgba(9, 9, 11, 0.76)' : theme.colors.textSoft,
     },
     otherMessageTime: {
       color: theme.colors.textSoft,

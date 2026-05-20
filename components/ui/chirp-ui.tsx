@@ -105,7 +105,7 @@ function AnimatedStatusHint({ isDarkMode }: { isDarkMode: boolean }) {
         styles.screenFade,
         {
           opacity,
-          backgroundColor: isDarkMode ? 'rgba(130, 232, 191, 0.05)' : 'rgba(15, 166, 166, 0.04)',
+          backgroundColor: isDarkMode ? 'rgba(181, 108, 255, 0.06)' : 'rgba(124, 58, 237, 0.04)',
         },
       ]}
     />
@@ -122,7 +122,7 @@ function Backdrop() {
           styles.orb,
           styles.orbTop,
           {
-            backgroundColor: theme.isDark ? 'rgba(73, 214, 176, 0.13)' : 'rgba(15, 166, 166, 0.16)',
+            backgroundColor: theme.isDark ? 'rgba(181, 108, 255, 0.18)' : 'rgba(124, 58, 237, 0.14)',
           },
         ]}
       />
@@ -131,7 +131,7 @@ function Backdrop() {
           styles.orb,
           styles.orbBottom,
           {
-            backgroundColor: theme.isDark ? 'rgba(99, 195, 255, 0.1)' : 'rgba(100, 175, 210, 0.15)',
+            backgroundColor: theme.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(17, 17, 20, 0.06)',
           },
         ]}
       />
