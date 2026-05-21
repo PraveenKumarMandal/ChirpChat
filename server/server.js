@@ -568,6 +568,13 @@ app.get('/health', async (_req, res) => {
   });
 });
 
+app.get('/', (_req, res) => {
+  res.json({
+    status: 'success',
+    message: 'ChirpChat Backend Running 🚀',
+  });
+});
+
 io.on('connection', (socket) => {
   const connectedUserId = String(socket.data.userId);
 
