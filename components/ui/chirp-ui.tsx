@@ -55,7 +55,17 @@ export function AppScreen({
   keyboardShouldPersistTaps = 'handled',
 }: ScreenProps) {
   const { theme, isDarkMode } = useTheme();
-  const sharedContentStyle = useMemo(
+  const scrollContentStyle = useMemo(
+    () => [
+      styles.scrollContent,
+      {
+        paddingBottom: 24,
+      },
+      contentContainerStyle,
+    ],
+    [contentContainerStyle]
+  );
+  const staticContentStyle = useMemo(
     () => [
       styles.screenContent,
       {
@@ -73,14 +83,17 @@ export function AppScreen({
       {scroll ? (
         <ScrollView
           style={styles.flex}
-          contentContainerStyle={sharedContentStyle}
+          contentContainerStyle={scrollContentStyle}
           keyboardShouldPersistTaps={keyboardShouldPersistTaps}
+          keyboardDismissMode="on-drag"
+          contentInsetAdjustmentBehavior="automatic"
+          nestedScrollEnabled
           showsVerticalScrollIndicator={false}
         >
           {children}
         </ScrollView>
       ) : (
-        <View style={sharedContentStyle}>{children}</View>
+        <View style={staticContentStyle}>{children}</View>
       )}
       <AnimatedStatusHint isDarkMode={isDarkMode} />
     </SafeAreaView>
@@ -349,6 +362,11 @@ const styles = StyleSheet.create({
   },
   screenContent: {
     flex: 1,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    gap: 16,
+  },
+  scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 18,
     paddingTop: 12,

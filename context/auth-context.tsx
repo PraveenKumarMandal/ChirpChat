@@ -1,6 +1,6 @@
-import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, AppStateStatus, Platform } from 'react-native';
-import api, { AUTH_STORAGE_KEY } from '../services/api';
+import api, { AUTH_STORAGE_KEY, setApiAuthToken } from '../services/api';
 import socket from '../services/socket';
 import sessionStorage from '../services/session-storage';
 
@@ -29,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const isSigningOutRef = useRef(false);
 
   useEffect(() => {
     const loadSession = async () => {
@@ -44,10 +45,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const storedUser = parsedSession?.user ?? null;
 
         if (!storedToken) {
+          setApiAuthToken(null);
           await sessionStorage.removeItem(AUTH_STORAGE_KEY);
           return;
         }
 
+        isSigningOutRef.current = false;
+        setApiAuthToken(storedToken);
         setAuthToken(storedToken);
         setCurrentUser(storedUser);
         socket.auth = { token: storedToken };
@@ -65,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const status = error?.response?.status;
 
         if (status === 401 || status === 403) {
+          setApiAuthToken(null);
           setCurrentUser(null);
           setAuthToken(null);
           socket.auth = {};
@@ -79,6 +84,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (isSigningOutRef.current) {
+      return;
+    }
+
     if (!currentUser?._id || !authToken) {
       if (socket.connected) {
         socket.disconnect();
@@ -112,6 +121,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (isSigningOutRef.current) {
+        return;
+      }
+
       if (nextState === 'active') {
         socket.auth = { token: authToken };
 
@@ -139,6 +152,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [authToken, currentUser?._id]);
 
   const signIn = async (session: { token: string; user: SessionUser }) => {
+    isSigningOutRef.current = false;
+    setApiAuthToken(session.token);
     setAuthToken(session.token);
     setCurrentUser(session.user);
     socket.auth = { token: session.token };
@@ -146,14 +161,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    isSigningOutRef.current = true;
+    setApiAuthToken(null);
+
     if (currentUser?._id && socket.connected) {
       socket.emit('manualLogout');
     }
 
-    setCurrentUser(null);
-    setAuthToken(null);
     socket.disconnect();
     socket.auth = {};
+    setCurrentUser(null);
+    setAuthToken(null);
     await sessionStorage.removeItem(AUTH_STORAGE_KEY);
   };
 

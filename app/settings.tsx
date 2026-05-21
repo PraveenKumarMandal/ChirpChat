@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppAvatar, AppBadge, AppButton, AppCard, AppInput, AppScreen } from '../components/ui/chirp-ui';
 import { useAuth } from '../context/auth-context';
 import { useTheme } from '../context/theme-context';
-import api from '../services/api';
+import api, { getApiErrorMessage } from '../services/api';
 import { isStrongPassword, isValidUsername, normalizeUsername, PASSWORD_HINT } from '../services/auth-utils';
 
 export default function Settings() {
@@ -101,7 +101,7 @@ export default function Settings() {
       await updateCurrentUser(response.data);
       Alert.alert('Updated', 'Profile picture updated successfully.');
     } catch (error: any) {
-      Alert.alert('Upload failed', error.response?.data?.error || 'Could not upload the profile picture.');
+      Alert.alert('Upload failed', getApiErrorMessage(error, 'Could not upload the profile picture.'));
     } finally {
       setUploading(false);
     }
@@ -134,7 +134,7 @@ export default function Settings() {
       setUsername(response.data.username);
       Alert.alert('Saved', 'Your profile details have been updated.');
     } catch (error: any) {
-      Alert.alert('Update failed', error.response?.data?.error || 'Could not update your profile.');
+      Alert.alert('Update failed', getApiErrorMessage(error, 'Could not update your profile.'));
     } finally {
       setSavingProfile(false);
     }
@@ -151,7 +151,7 @@ export default function Settings() {
       });
       Alert.alert('OTP sent', `A password-change OTP was sent to ${currentUser.email}.`);
     } catch (error: any) {
-      Alert.alert('OTP failed', error.response?.data?.error || 'Could not send the OTP right now.');
+      Alert.alert('OTP failed', getApiErrorMessage(error, 'Could not send the OTP right now.'));
     } finally {
       setSendingOtp(false);
     }
@@ -173,7 +173,7 @@ export default function Settings() {
       setOtpToken(response.data.otpToken);
       Alert.alert('Verified', 'OTP verified. You can update your password now.');
     } catch (error: any) {
-      Alert.alert('Verification failed', error.response?.data?.error || 'Could not verify this OTP.');
+      Alert.alert('Verification failed', getApiErrorMessage(error, 'Could not verify this OTP.'));
     } finally {
       setVerifyingOtp(false);
     }
@@ -208,7 +208,7 @@ export default function Settings() {
       setConfirmPassword('');
       Alert.alert('Password updated', 'Your password has been changed successfully.');
     } catch (error: any) {
-      Alert.alert('Change failed', error.response?.data?.error || 'Could not change your password.');
+      Alert.alert('Change failed', getApiErrorMessage(error, 'Could not change your password.'));
     } finally {
       setChangingPassword(false);
     }

@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppAvatar, AppBadge, AppButton, AppCard, AppScreen } from '../components/ui/chirp-ui';
 import { useAuth } from '../context/auth-context';
 import { useTheme } from '../context/theme-context';
-import api from '../services/api';
+import api, { getApiErrorMessage } from '../services/api';
 import socket from '../services/socket';
 
 type Contact = {
@@ -95,7 +95,7 @@ export default function Home() {
       setPendingRequests(response.data.pendingRequests);
       await updateCurrentUser(response.data.currentUser);
     } catch (error) {
-      console.log('Home load error:', error);
+      console.log('Home load error:', getApiErrorMessage(error, 'Could not load home data.'));
     }
   }, [currentUser, updateCurrentUser]);
 

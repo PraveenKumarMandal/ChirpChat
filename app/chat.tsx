@@ -23,7 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppAvatar, AppBadge, AppButton, AppCard, AppScreen } from '../components/ui/chirp-ui';
 import { useAuth } from '../context/auth-context';
 import { useTheme } from '../context/theme-context';
-import api from '../services/api';
+import api, { getApiErrorMessage } from '../services/api';
 import socket from '../services/socket';
 
 type Message = {
@@ -115,7 +115,7 @@ export default function Chat() {
           listRef.current?.scrollToEnd({ animated: false });
         });
       } catch (error) {
-        console.log('Chat load error:', error);
+        Alert.alert('Load failed', getApiErrorMessage(error, 'Could not load this chat right now.'));
       }
     };
 
@@ -322,7 +322,7 @@ export default function Chat() {
         ...uploadResponse.data,
       });
     } catch (error: any) {
-      Alert.alert('Upload failed', error.response?.data?.error || 'Could not upload this attachment.');
+      Alert.alert('Upload failed', getApiErrorMessage(error, 'Could not upload this attachment.'));
     } finally {
       setIsUploading(false);
       setIsSendingFile(false);

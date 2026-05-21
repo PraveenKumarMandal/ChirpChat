@@ -808,6 +808,7 @@ app.post('/auth/email-otp/send', async (req, res) => {
     await issueEmailOtp({ email, purpose });
     res.json({ success: true });
   } catch (error) {
+    logError('OTP send error:', error);
     res.status(400).json({ error: error.message || 'Could not send OTP email' });
   }
 });
@@ -1219,6 +1220,10 @@ app.post('/messages/upload', requireAuth, upload.single('media'), async (req, re
       messageType: isImage ? 'image' : 'file',
     });
   } catch (error) {
+    if (req.file?.path) {
+      await removeUploadedFile(req.file.path);
+    }
+
     res.status(500).json({ error: error.message || 'Error uploading media' });
   }
 });

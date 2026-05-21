@@ -4,7 +4,7 @@ import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'r
 import { AppButton, AppCard, AppInput, AppScreen } from '../components/ui/chirp-ui';
 import { useAuth } from '../context/auth-context';
 import { useTheme } from '../context/theme-context';
-import api from '../services/api';
+import api, { getApiErrorMessage } from '../services/api';
 import {
   isStrongPassword,
   isValidEmail,
@@ -76,7 +76,7 @@ export default function ForgotPassword() {
       setOtpToken('');
       Alert.alert('OTP sent', `A reset OTP was sent to ${normalizedEmail}.`);
     } catch (error: any) {
-      Alert.alert('OTP failed', error.response?.data?.error || 'Could not send OTP right now.');
+      Alert.alert('OTP failed', getApiErrorMessage(error, 'Could not send OTP right now.'));
     } finally {
       setSendingOtp(false);
     }
@@ -99,7 +99,7 @@ export default function ForgotPassword() {
       setOtpToken(response.data.otpToken);
       Alert.alert('Verified', 'OTP verified. You can set the new password now.');
     } catch (error: any) {
-      Alert.alert('Verification failed', error.response?.data?.error || 'Could not verify this OTP.');
+      Alert.alert('Verification failed', getApiErrorMessage(error, 'Could not verify this OTP.'));
     } finally {
       setVerifyingOtp(false);
     }
@@ -129,7 +129,7 @@ export default function ForgotPassword() {
       await signIn(response.data);
       router.replace('/home');
     } catch (error: any) {
-      Alert.alert('Reset failed', error.response?.data?.error || 'Could not reset the password.');
+      Alert.alert('Reset failed', getApiErrorMessage(error, 'Could not reset the password.'));
     } finally {
       setSaving(false);
     }

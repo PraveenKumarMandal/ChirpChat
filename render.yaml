@@ -30,7 +30,7 @@ services:
       - key: CLIENT_ORIGIN
         sync: false
       - key: PUBLIC_SERVER_URL
-        sync: false
+        value: https://chirpchat-api.onrender.com
       - key: UPLOADS_DIR
         value: /var/data/chirpchat-uploads
       - key: UPLOAD_MAX_FILE_SIZE_MB
