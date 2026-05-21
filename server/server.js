@@ -912,6 +912,7 @@ app.post('/auth/login', async (req, res) => {
     const normalizedIdentifier = normalizeIdentifier(identifier);
     const normalizedEmail = normalizeEmail(normalizedIdentifier);
     const normalizedUsername = normalizeUsername(normalizedIdentifier);
+    const isEmailLogin = normalizedIdentifier.includes('@');
 
     if (!normalizedIdentifier || !password) {
       return res.status(400).json({ error: 'Email or username and password are required' });
@@ -921,8 +922,14 @@ app.post('/auth/login', async (req, res) => {
       $or: [{ email: normalizedEmail }, { username: normalizedUsername }],
     });
 
-    if (!user || !verifyPassword(password, user.passwordHash)) {
-      return res.status(401).json({ error: 'Invalid email/username or password' });
+    if (!user) {
+      return res.status(401).json({
+        error: isEmailLogin ? 'Email not registered' : 'Username not registered',
+      });
+    }
+
+    if (!verifyPassword(password, user.passwordHash)) {
+      return res.status(401).json({ error: 'Wrong password' });
     }
 
     issueAuthResponse(res, user);

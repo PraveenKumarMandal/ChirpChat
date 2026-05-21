@@ -45,8 +45,12 @@ export default function Login() {
   };
 
   return (
-    <AppScreen scroll contentContainerStyle={styles.content}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView
+      style={styles.keyboard}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+    >
+      <AppScreen scroll keyboardShouldPersistTaps="always" contentContainerStyle={styles.content}>
         <View style={styles.stack}>
           <View style={styles.heroWrap}>
             <Text style={styles.brand}>ChirpChat</Text>
@@ -72,6 +76,7 @@ export default function Login() {
               value={password}
               onChangeText={setPassword}
               onSubmitEditing={login}
+              returnKeyType="done"
             />
 
             <AppButton onPress={login} disabled={buttonDisabled} leftIcon="log-in-outline">
@@ -90,16 +95,20 @@ export default function Login() {
             </Text>
           </View>
         </View>
-      </KeyboardAvoidingView>
-    </AppScreen>
+      </AppScreen>
+    </KeyboardAvoidingView>
   );
 }
 
 const createStyles = (theme: ReturnType<typeof useTheme>['theme']) =>
   StyleSheet.create({
+    keyboard: {
+      flex: 1,
+    },
     content: {
       justifyContent: 'center',
       paddingVertical: 28,
+      flexGrow: 1,
     },
     stack: {
       gap: 18,

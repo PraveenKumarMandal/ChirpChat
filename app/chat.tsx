@@ -7,6 +7,7 @@ import {
   Alert,
   FlatList,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -217,6 +218,20 @@ export default function Chat() {
     });
   }, [messages]);
 
+  useEffect(() => {
+    const scrollToLatest = () => {
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToEnd({ animated: true });
+      });
+    };
+
+    const showSubscription = Keyboard.addListener('keyboardDidShow', scrollToLatest);
+
+    return () => {
+      showSubscription.remove();
+    };
+  }, []);
+
   if (!currentUser) {
     return <Redirect href="/login" />;
   }
@@ -419,7 +434,7 @@ export default function Chat() {
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 18}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 12 : 0}
       >
         <View style={styles.container}>
           <View style={styles.headerOuter}>
@@ -444,6 +459,8 @@ export default function Chat() {
             data={messages}
             keyExtractor={(item, index) => item._id || index.toString()}
             contentContainerStyle={[styles.messageList, { paddingBottom: 16 }]}
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
             renderItem={({ item }) => {
               const isMine = item.sender === currentUser._id;
@@ -492,6 +509,11 @@ export default function Chat() {
               <TextInput
                 value={message}
                 onChangeText={emitTyping}
+                onFocus={() => {
+                  requestAnimationFrame(() => {
+                    listRef.current?.scrollToEnd({ animated: true });
+                  });
+                }}
                 placeholder="Type a message"
                 placeholderTextColor={theme.colors.textSoft}
                 style={styles.input}
