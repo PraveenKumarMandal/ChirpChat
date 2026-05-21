@@ -12,20 +12,17 @@
       "policy": "appVersion"
     },
     "updates": {
-      "fallbackToCacheTimeout": 0
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/77564ec6-ed7d-43bf-95ed-dff8cc38e9fc"
     },
-
-     "splash": {
+    "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#FFFFFF"
     },
-
     "assetBundlePatterns": [
       "**/*"
     ],
-
-    
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.chirpchat.app",
