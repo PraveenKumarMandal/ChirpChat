@@ -2,14 +2,14 @@
   "expo": {
     "name": "ChirpChat",
     "slug": "chirpchat",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "chirpchat",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "runtimeVersion": {
-      "policy": "appVersion"
+    "policy": "appVersion"
     },
     "updates": {
       "fallbackToCacheTimeout": 0,
