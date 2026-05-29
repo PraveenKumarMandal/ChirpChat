@@ -91,7 +91,7 @@ export default function Login() {
           <View style={styles.footer}>
             <Text style={styles.footerText}>Need a new account?</Text>
             <Text style={styles.footerLink} onPress={() => router.push('/register')}>
-              Register with OTP
+              Create account
             </Text>
           </View>
         </View>

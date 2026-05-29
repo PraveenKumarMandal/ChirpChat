@@ -2,7 +2,7 @@
 
 ChirpChat is a production-oriented Expo chat client paired with a Node.js, Express, MongoDB, and Socket.IO backend. The app supports:
 
-- Email OTP registration, password reset, and password change
+- Email/password registration, password reset OTP, and password change OTP
 - Profile management with image uploads
 - Friend requests and blocking
 - Real-time chat with typing state, delivery status, read status, and file/image attachments
@@ -46,7 +46,7 @@ cp server/.env.example server/.env
 Set:
 
 - `EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_SOCKET_URL` to your backend URL for production builds
-- `MONGO_URI`, `AUTH_SECRET`, and SMTP settings in `server/.env`
+- `MONGO_URI`, `AUTH_SECRET`, and your email provider settings in `server/.env`
 
 ### 3. Run the backend
 
@@ -83,14 +83,18 @@ Required backend environment variables:
 
 - `MONGO_URI`
 - `AUTH_SECRET`
-- `SMTP_HOST`
-- `SMTP_PORT`
-- `SMTP_SECURE`
-- `SMTP_USER`
-- `SMTP_PASS`
-- `SMTP_FROM`
 - `CLIENT_ORIGIN`
 - `PUBLIC_SERVER_URL`
+
+Email delivery configuration:
+
+- Recommended on Render free web services: set `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, and `EMAIL_FROM`
+- SMTP is still supported with `EMAIL_PROVIDER=smtp`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, and `SMTP_FROM`
+
+Render note:
+
+- Starting September 26, 2025, Render free web services block outbound SMTP traffic on ports `25`, `465`, and `587`
+- If you stay on Render free, use an HTTPS email provider such as Resend for OTP delivery
 
 ## Expo / EAS release
 

@@ -1,10 +1,11 @@
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
-  Linking,
+  LayoutChangeEvent,
+  PanResponder,
   Platform,
   Pressable,
   StyleSheet,
@@ -18,6 +19,26 @@ import { useAuth } from '../context/auth-context';
 import { useTheme } from '../context/theme-context';
 import api, { getApiErrorMessage } from '../services/api';
 import { isStrongPassword, isValidUsername, normalizeUsername, PASSWORD_HINT } from '../services/auth-utils';
+
+type FeedbackType = 'feedback' | 'complaint' | 'bug';
+
+const FEEDBACK_TYPE_OPTIONS: {
+  label: string;
+  value: FeedbackType;
+  icon: keyof typeof Ionicons.glyphMap;
+}[] = [
+  { label: 'Feedback', value: 'feedback', icon: 'sparkles-outline' },
+  { label: 'Complaint', value: 'complaint', icon: 'alert-circle-outline' },
+  { label: 'Bug', value: 'bug', icon: 'bug-outline' },
+];
+
+const FEEDBACK_RATING_LABELS: Record<number, string> = {
+  1: 'Needs attention',
+  2: 'Could be better',
+  3: 'Okay',
+  4: 'Good',
+  5: 'Excellent',
+};
 
 export default function Settings() {
   const { currentUser, signOut, updateCurrentUser } = useAuth();
@@ -38,8 +59,39 @@ export default function Settings() {
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [feedbackType, setFeedbackType] = useState<FeedbackType>('feedback');
+  const [feedbackSubject, setFeedbackSubject] = useState('');
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [feedbackRating, setFeedbackRating] = useState(4);
+  const [sendingFeedback, setSendingFeedback] = useState(false);
+  const [ratingTrackWidth, setRatingTrackWidth] = useState(0);
 
   const styles = useMemo(() => createStyles(theme), [theme]);
+  const feedbackRatingFillWidth = `${((feedbackRating - 1) / 4) * 100}%` as `${number}%`;
+
+  const updateFeedbackRatingFromLocation = useCallback((locationX: number) => {
+    if (!ratingTrackWidth) {
+      return;
+    }
+
+    const ratio = Math.min(1, Math.max(0, locationX / ratingTrackWidth));
+    setFeedbackRating(Math.min(5, Math.max(1, Math.round(ratio * 4) + 1)));
+  }, [ratingTrackWidth]);
+
+  const ratingPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (event) => {
+          updateFeedbackRatingFromLocation(event.nativeEvent.locationX);
+        },
+        onPanResponderMove: (event) => {
+          updateFeedbackRatingFromLocation(event.nativeEvent.locationX);
+        },
+      }),
+    [updateFeedbackRatingFromLocation]
+  );
 
   useEffect(() => {
     setName(currentUser?.name ?? '');
@@ -53,6 +105,9 @@ export default function Settings() {
 
   const normalizedUsername = normalizeUsername(username);
   const passwordsMatch = password === confirmPassword;
+  const handleRatingTrackLayout = (event: LayoutChangeEvent) => {
+    setRatingTrackWidth(event.nativeEvent.layout.width);
+  };
 
   const uploadProfilePicture = async () => {
     try {
@@ -215,15 +270,38 @@ export default function Settings() {
   };
 
   const sendFeedback = async () => {
-    const url = `mailto:chirpchat404@gmail.com?subject=${encodeURIComponent('ChirpChat Feedback')}`;
-    const supported = await Linking.canOpenURL(url);
+    const subject = feedbackSubject.trim();
+    const message = feedbackMessage.trim();
 
-    if (!supported) {
-      Alert.alert('Mail unavailable', 'No mail app is available on this device.');
+    if (!subject) {
+      Alert.alert('Subject required', 'Add a short subject so we can understand the request quickly.');
       return;
     }
 
-    await Linking.openURL(url);
+    if (message.length < 10) {
+      Alert.alert('More detail needed', 'Please write at least 10 characters before sending feedback.');
+      return;
+    }
+
+    try {
+      setSendingFeedback(true);
+      await api.post('/feedback', {
+        feedbackType,
+        subject,
+        message,
+        rating: feedbackRating,
+      });
+
+      setFeedbackSubject('');
+      setFeedbackMessage('');
+      setFeedbackRating(4);
+      setFeedbackType('feedback');
+      Alert.alert('Feedback sent', 'Thanks for helping us improve ChirpChat.');
+    } catch (error: any) {
+      Alert.alert('Send failed', getApiErrorMessage(error, 'Could not send feedback right now.'));
+    } finally {
+      setSendingFeedback(false);
+    }
   };
 
   const logout = async () => {
@@ -242,10 +320,8 @@ export default function Settings() {
         <View style={styles.heroTopRow}>
           <View style={styles.heroTextWrap}>
             <Text style={styles.eyebrow}>Account Center</Text>
-            <Text style={styles.heroTitle}>Settings that actually feel useful</Text>
-            <Text style={styles.heroSubtitle}>
-              Manage your profile, switch themes, update your password with email OTP, and contact ChirpChat support.
-            </Text>
+            <Text style={styles.heroTitle}>Settings</Text>
+            <Text style={styles.heroSubtitle}>Manage your profile, security, appearance, and support preferences.</Text>
           </View>
           <AppAvatar uri={profilePicture} name={name || currentUser.name} size={84} />
         </View>
@@ -258,7 +334,7 @@ export default function Settings() {
 
       <AppCard>
         <View style={styles.sectionHeader}>
-          <View>
+          <View style={styles.sectionHeaderText}>
             <Text style={styles.sectionTitle}>Profile details</Text>
             <Text style={styles.sectionSubtitle}>Keep your public profile polished and up to date.</Text>
           </View>
@@ -294,27 +370,29 @@ export default function Settings() {
 
       <AppCard>
         <View style={styles.sectionHeader}>
-          <View>
+          <View style={styles.sectionHeaderText}>
             <Text style={styles.sectionTitle}>Appearance</Text>
-            <Text style={styles.sectionSubtitle}>Your app starts in dark mode by default. Switch anytime.</Text>
+            <Text style={styles.sectionSubtitle}>Choose the theme that feels comfortable.</Text>
           </View>
-          <Switch
-            value={isDarkMode}
-            onValueChange={() => {
-              toggleTheme().catch(() => undefined);
-            }}
-            thumbColor={isDarkMode ? theme.colors.accent : theme.colors.white}
-            trackColor={{
-              false: theme.colors.borderStrong,
-              true: theme.colors.accentSoft,
-            }}
-          />
+          <View style={styles.switchControl}>
+            <Switch
+              value={isDarkMode}
+              onValueChange={() => {
+                toggleTheme().catch(() => undefined);
+              }}
+              thumbColor={isDarkMode ? theme.colors.accent : theme.colors.white}
+              trackColor={{
+                false: theme.colors.borderStrong,
+                true: theme.colors.accentSoft,
+              }}
+            />
+          </View>
         </View>
       </AppCard>
 
       <AppCard>
         <View style={styles.sectionHeader}>
-          <View>
+          <View style={styles.sectionHeaderText}>
             <Text style={styles.sectionTitle}>Change password</Text>
             <Text style={styles.sectionSubtitle}>Use OTP sent to your linked email: {currentUser.email}</Text>
           </View>
@@ -366,12 +444,121 @@ export default function Settings() {
       </AppCard>
 
       <AppCard>
-        <Text style={styles.sectionTitle}>Support</Text>
-        <Text style={styles.sectionSubtitle}>
-          Share bugs, suggestions, or feedback with ChirpChat customer service.
-        </Text>
-        <AppButton variant="secondary" onPress={sendFeedback} leftIcon="chatbubble-ellipses-outline">
-          Email chirpchat404@gmail.com
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionHeaderText}>
+            <Text style={styles.sectionTitle}>Support</Text>
+            <Text style={styles.sectionSubtitle}>Share feedback, complaints, or bug reports with ChirpChat.</Text>
+          </View>
+        </View>
+
+        <View style={styles.feedbackTypeRow}>
+          {FEEDBACK_TYPE_OPTIONS.map((option) => {
+            const isActive = feedbackType === option.value;
+
+            return (
+              <Pressable
+                key={option.value}
+                onPress={() => setFeedbackType(option.value)}
+                style={[
+                  styles.feedbackTypeChip,
+                  {
+                    borderColor: isActive ? theme.colors.accent : theme.colors.border,
+                    backgroundColor: isActive ? theme.colors.accentSoft : theme.colors.surfaceRaised,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={option.icon}
+                  size={16}
+                  color={isActive ? theme.colors.accent : theme.colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.feedbackTypeText,
+                    { color: isActive ? theme.colors.accent : theme.colors.text },
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <AppInput
+          label="Subject"
+          value={feedbackSubject}
+          onChangeText={setFeedbackSubject}
+          placeholder="What should we look at?"
+          maxLength={120}
+        />
+
+        <AppInput
+          label="Message"
+          value={feedbackMessage}
+          onChangeText={setFeedbackMessage}
+          placeholder="Tell us what happened or what could be better"
+          multiline
+          numberOfLines={5}
+          maxLength={2000}
+          textAlignVertical="top"
+          style={styles.feedbackMessageInput}
+        />
+
+        <View style={styles.ratingBlock}>
+          <View style={styles.ratingHeader}>
+            <Text style={styles.ratingTitle}>Rating</Text>
+            <Text style={styles.ratingValue}>
+              {feedbackRating}/5 - {FEEDBACK_RATING_LABELS[feedbackRating]}
+            </Text>
+          </View>
+
+          <View
+            style={styles.ratingTrackTouch}
+            onLayout={handleRatingTrackLayout}
+            {...ratingPanResponder.panHandlers}
+          >
+            <View style={styles.ratingTrack}>
+              <View style={[styles.ratingFill, { width: feedbackRatingFillWidth }]} />
+            </View>
+            <View style={styles.ratingDotsRow}>
+              {[1, 2, 3, 4, 5].map((rating) => {
+                const isActive = rating <= feedbackRating;
+
+                return (
+                  <Pressable
+                    key={rating}
+                    onPress={() => setFeedbackRating(rating)}
+                    style={[
+                      styles.ratingDot,
+                      {
+                        backgroundColor: isActive ? theme.colors.accent : theme.colors.surfaceRaised,
+                        borderColor: isActive ? theme.colors.accent : theme.colors.borderStrong,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.ratingDotText,
+                        { color: isActive ? theme.colors.accentText : theme.colors.textMuted },
+                      ]}
+                    >
+                      {rating}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+
+        <AppButton
+          variant="secondary"
+          onPress={sendFeedback}
+          disabled={sendingFeedback}
+          leftIcon="send-outline"
+        >
+          {sendingFeedback ? 'Sending feedback...' : 'Send feedback'}
         </AppButton>
       </AppCard>
 
@@ -424,8 +611,13 @@ const createStyles = (theme: ReturnType<typeof useTheme>['theme']) =>
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
+      flexWrap: 'wrap',
       gap: 12,
       marginBottom: 8,
+    },
+    sectionHeaderText: {
+      flex: 1,
+      minWidth: 180,
     },
     sectionTitle: {
       color: theme.colors.text,
@@ -441,6 +633,7 @@ const createStyles = (theme: ReturnType<typeof useTheme>['theme']) =>
     cameraChip: {
       flexDirection: 'row',
       alignItems: 'center',
+      alignSelf: 'flex-start',
       gap: 8,
       borderWidth: 1,
       borderColor: theme.colors.border,
@@ -448,11 +641,17 @@ const createStyles = (theme: ReturnType<typeof useTheme>['theme']) =>
       paddingHorizontal: 12,
       paddingVertical: 10,
       backgroundColor: theme.colors.surfaceRaised,
+      maxWidth: '100%',
     },
     cameraChipText: {
       color: theme.colors.text,
       fontWeight: '700',
       fontSize: 13,
+      flexShrink: 1,
+    },
+    switchControl: {
+      alignSelf: 'flex-start',
+      paddingVertical: 2,
     },
     profileRow: {
       flexDirection: 'row',
@@ -472,5 +671,79 @@ const createStyles = (theme: ReturnType<typeof useTheme>['theme']) =>
     profileMeta: {
       color: theme.colors.textMuted,
       fontSize: 14,
+    },
+    feedbackTypeRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+    },
+    feedbackTypeChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      borderWidth: 1,
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    feedbackTypeText: {
+      fontSize: 13,
+      fontWeight: '800',
+    },
+    feedbackMessageInput: {
+      minHeight: 126,
+    },
+    ratingBlock: {
+      gap: 12,
+    },
+    ratingHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    ratingTitle: {
+      color: theme.colors.textMuted,
+      fontSize: 13,
+      fontWeight: '700',
+      letterSpacing: 0.2,
+    },
+    ratingValue: {
+      color: theme.colors.text,
+      fontSize: 13,
+      fontWeight: '800',
+    },
+    ratingTrackTouch: {
+      gap: 12,
+      paddingVertical: 6,
+    },
+    ratingTrack: {
+      height: 8,
+      borderRadius: 999,
+      backgroundColor: theme.colors.border,
+      overflow: 'hidden',
+    },
+    ratingFill: {
+      height: 8,
+      borderRadius: 999,
+      backgroundColor: theme.colors.accent,
+    },
+    ratingDotsRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    ratingDot: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    ratingDotText: {
+      fontSize: 12,
+      fontWeight: '800',
     },
   });

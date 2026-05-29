@@ -14,11 +14,11 @@ const {
   createOtpVerificationToken,
   createSessionToken,
   hashPassword,
-  verifyOtpVerificationToken,
   verifyPassword,
   verifySessionToken,
+  verifyOtpVerificationToken,
 } = require('./utils/auth');
-const { sendOtpEmail } = require('./utils/mailer');
+const { sendAccountCreatedEmail, sendFeedbackEmail, sendOtpEmail } = require('./utils/mailer');
 const User = require('./models/User');
 const Message = require('./models/Message');
 const FriendRequest = require('./models/FriendRequest');
@@ -120,6 +120,9 @@ const onlineUsers = {};
 const OTP_EXPIRY_MS = 10 * 60 * 1000;
 const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
 const OTP_ATTEMPTS = 5;
+const FEEDBACK_MESSAGE_MAX_LENGTH = 2000;
+const FEEDBACK_SUBJECT_MAX_LENGTH = 120;
+const FEEDBACK_TYPES = new Set(['feedback', 'complaint', 'bug']);
 
 const normalizeEmail = (value = '') => String(value).trim().toLowerCase();
 const normalizeUsername = (username = '') => String(username).trim().toLowerCase();
@@ -157,6 +160,23 @@ const removeUploadedFile = async (filePath = '') => {
   }
 };
 const logError = (...args) => console.error(...args);
+const getHttpStatusFromError = (error, fallback = 400) => {
+  const statusCode = Number(error?.statusCode || error?.status || fallback);
+  return statusCode >= 400 && statusCode <= 599 ? statusCode : fallback;
+};
+const snapshotOtpRecord = (record) => {
+  if (!record) {
+    return null;
+  }
+
+  return {
+    codeHash: record.codeHash,
+    expiresAt: record.expiresAt,
+    resendAvailableAt: record.resendAvailableAt,
+    attemptsRemaining: record.attemptsRemaining,
+    consumedAt: record.consumedAt,
+  };
+};
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
@@ -486,24 +506,45 @@ const issueEmailOtp = async ({ email, purpose }) => {
   }
 
   const code = generateOtpCode();
+  const codeHash = hashOtpCode(code);
   const expiresAt = new Date(now.getTime() + OTP_EXPIRY_MS);
   const resendAvailableAt = new Date(now.getTime() + OTP_RESEND_COOLDOWN_MS);
+  const previousOtpState = snapshotOtpRecord(existingOtp);
 
   await EmailOtp.findOneAndUpdate(
     { email, purpose },
     {
       $set: {
-        codeHash: hashOtpCode(code),
+        codeHash,
         expiresAt,
         resendAvailableAt,
         attemptsRemaining: OTP_ATTEMPTS,
         consumedAt: null,
       },
     },
-    { new: true, upsert: true }
+    { returnDocument: 'after', upsert: true }
   );
 
-  await sendOtpEmail({ email, code, purpose });
+  try {
+    await sendOtpEmail({ email, code, purpose });
+  } catch (error) {
+    try {
+      // Keep the previous OTP usable if the replacement email was never delivered.
+      if (previousOtpState) {
+        await EmailOtp.findOneAndUpdate(
+          { email, purpose },
+          { $set: previousOtpState },
+          { returnDocument: 'after', upsert: true }
+        );
+      } else {
+        await EmailOtp.deleteOne({ email, purpose, codeHash });
+      }
+    } catch (rollbackError) {
+      logError('OTP rollback error:', rollbackError);
+    }
+
+    throw error;
+  }
 };
 
 const verifyEmailOtpCode = async ({ email, purpose, code }) => {
@@ -772,7 +813,7 @@ app.post('/auth/email-otp/send', async (req, res) => {
       return res.status(400).json({ error: 'A valid email address is required' });
     }
 
-    if (!['register', 'reset-password', 'change-password'].includes(purpose)) {
+    if (!['reset-password', 'change-password'].includes(purpose)) {
       return res.status(400).json({ error: 'Invalid OTP purpose' });
     }
 
@@ -797,10 +838,6 @@ app.post('/auth/email-otp/send', async (req, res) => {
       }
     }
 
-    if (purpose === 'register' && existingUser) {
-      return res.status(409).json({ error: 'This email is already registered' });
-    }
-
     if (purpose === 'reset-password' && !existingUser) {
       return res.status(404).json({ error: 'No account was found for this email' });
     }
@@ -809,7 +846,9 @@ app.post('/auth/email-otp/send', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     logError('OTP send error:', error);
-    res.status(400).json({ error: error.message || 'Could not send OTP email' });
+    res.status(getHttpStatusFromError(error)).json({
+      error: error.message || 'Could not send OTP email',
+    });
   }
 });
 
@@ -823,7 +862,7 @@ app.post('/auth/email-otp/verify', async (req, res) => {
       return res.status(400).json({ error: 'Email and OTP code are required' });
     }
 
-    if (!['register', 'reset-password', 'change-password'].includes(purpose)) {
+    if (!['reset-password', 'change-password'].includes(purpose)) {
       return res.status(400).json({ error: 'Invalid OTP purpose' });
     }
 
@@ -836,15 +875,15 @@ app.post('/auth/email-otp/verify', async (req, res) => {
 
 app.post('/auth/register', upload.single('profilePicture'), async (req, res) => {
   try {
-    const { name, email, username, password, otpToken } = req.body;
+    const { name, email, username, password } = req.body;
     const trimmedName = String(name || '').trim();
     const normalizedEmail = normalizeEmail(email);
     const normalizedUsername = normalizeUsername(username);
 
-    if (!trimmedName || !normalizedEmail || !normalizedUsername || !password || !otpToken) {
+    if (!trimmedName || !normalizedEmail || !normalizedUsername || !password) {
       return res
         .status(400)
-        .json({ error: 'Name, email, username, password, and verified OTP are required' });
+        .json({ error: 'Name, email, username, and password are required' });
     }
 
     if (trimmedName.length > 80) {
@@ -874,13 +913,6 @@ app.post('/auth/register', upload.single('profilePicture'), async (req, res) => 
       });
     }
 
-    const otpPayload = verifyOtpVerificationToken(otpToken, 'register');
-
-    if (otpPayload.sub !== normalizedEmail) {
-      await removeUploadedFile(req.file.path);
-      return res.status(400).json({ error: 'The verified email does not match this registration' });
-    }
-
     const existingUser = await User.findOne({
       $or: [{ email: normalizedEmail }, { username: normalizedUsername }],
     });
@@ -896,10 +928,12 @@ app.post('/auth/register', upload.single('profilePicture'), async (req, res) => 
       username: normalizedUsername,
       passwordHash: hashPassword(password),
       profilePicture: createPublicFileUrl(req, req.file.filename),
-      emailVerifiedAt: new Date(),
     });
 
     await user.save();
+    sendAccountCreatedEmail({ user }).catch((emailError) => {
+      logError('Account created email error:', emailError);
+    });
     issueAuthResponse(res, user);
   } catch (error) {
     if (req.file?.path) {
@@ -1018,6 +1052,50 @@ app.post('/auth/change-password', requireAuth, async (req, res) => {
 
 app.get('/auth/me', requireAuth, async (req, res) => {
   res.json(userSummary(req.authUser));
+});
+
+app.post('/feedback', requireAuth, async (req, res) => {
+  try {
+    const feedbackType = String(req.body.feedbackType || 'feedback').trim().toLowerCase();
+    const subject = String(req.body.subject || '').trim();
+    const message = String(req.body.message || '').trim();
+    const rating = Number(req.body.rating);
+
+    if (!FEEDBACK_TYPES.has(feedbackType)) {
+      return res.status(400).json({ error: 'Choose a valid feedback type' });
+    }
+
+    if (!subject || subject.length > FEEDBACK_SUBJECT_MAX_LENGTH) {
+      return res.status(400).json({
+        error: `Subject is required and must be ${FEEDBACK_SUBJECT_MAX_LENGTH} characters or fewer`,
+      });
+    }
+
+    if (message.length < 10 || message.length > FEEDBACK_MESSAGE_MAX_LENGTH) {
+      return res.status(400).json({
+        error: `Feedback must be between 10 and ${FEEDBACK_MESSAGE_MAX_LENGTH} characters`,
+      });
+    }
+
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Rating must be between 1 and 5' });
+    }
+
+    await sendFeedbackEmail({
+      user: req.authUser,
+      feedbackType,
+      subject,
+      message,
+      rating,
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    logError('Feedback send error:', error);
+    res.status(getHttpStatusFromError(error, 500)).json({
+      error: error.message || 'Could not send feedback right now',
+    });
+  }
 });
 
 app.get('/users', requireAuth, async (_req, res) => {

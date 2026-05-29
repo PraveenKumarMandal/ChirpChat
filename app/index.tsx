@@ -36,7 +36,7 @@ export default function Index() {
 
         <AppCard>
           <Text style={styles.cardTitle}>Start your session</Text>
-          <Text style={styles.cardText}>Log in to continue or create a new account with email OTP.</Text>
+          <Text style={styles.cardText}>Log in to continue or create a new account with email and password.</Text>
           <View style={styles.actionStack}>
             <AppButton onPress={() => router.push('/login')} leftIcon="log-in-outline">
               Log in

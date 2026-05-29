@@ -27,20 +27,15 @@ export default function Register() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [otpToken, setOtpToken] = useState('');
   const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [sendingOtp, setSendingOtp] = useState(false);
-  const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [registering, setRegistering] = useState(false);
 
   const normalizedEmail = normalizeEmail(email);
   const normalizedUsername = normalizeUsername(username);
   const passwordsMatch = password === confirmPassword;
   const canRegister = Boolean(
-    otpToken &&
-      selectedImage &&
+    selectedImage &&
       name.trim() &&
       normalizedEmail &&
       normalizedUsername &&
@@ -110,77 +105,6 @@ export default function Register() {
 
   const handleEmailChange = (value: string) => {
     setEmail(value);
-    setOtpCode('');
-    setOtpToken('');
-  };
-
-  const sendOtp = async () => {
-    const validationError = validateRegistration();
-
-    if (validationError) {
-      Alert.alert('Check details', validationError);
-      return;
-    }
-
-    try {
-      setSendingOtp(true);
-      const availabilityResponse = await api.get('/auth/availability', {
-        params: {
-          email: normalizedEmail,
-          username: normalizedUsername,
-        },
-      });
-
-      if (!availabilityResponse.data.emailAvailable) {
-        Alert.alert('Email in use', 'This email is already registered. Please log in.');
-        router.replace({
-          pathname: '/login',
-          params: { identifier: normalizedEmail },
-        });
-        return;
-      }
-
-      if (!availabilityResponse.data.usernameAvailable) {
-        Alert.alert('Username taken', 'Please choose a different username.');
-        return;
-      }
-
-      await api.post('/auth/email-otp/send', {
-        email: normalizedEmail,
-        purpose: 'register',
-      });
-
-      setOtpCode('');
-      setOtpToken('');
-      Alert.alert('OTP sent', `A verification code was sent to ${normalizedEmail}.`);
-    } catch (error: any) {
-      Alert.alert('OTP failed', getApiErrorMessage(error, 'Could not send OTP right now.'));
-    } finally {
-      setSendingOtp(false);
-    }
-  };
-
-  const verifyOtp = async () => {
-    if (otpCode.trim().length !== 6) {
-      Alert.alert('Invalid OTP', 'Enter the 6-digit OTP you received by email.');
-      return;
-    }
-
-    try {
-      setVerifyingOtp(true);
-      const response = await api.post('/auth/email-otp/verify', {
-        email: normalizedEmail,
-        purpose: 'register',
-        code: otpCode.trim(),
-      });
-
-      setOtpToken(response.data.otpToken);
-      Alert.alert('Verified', 'Your email is verified. Finish registration now.');
-    } catch (error: any) {
-      Alert.alert('Verification failed', getApiErrorMessage(error, 'Could not verify this OTP.'));
-    } finally {
-      setVerifyingOtp(false);
-    }
   };
 
   const register = async () => {
@@ -191,8 +115,8 @@ export default function Register() {
       return;
     }
 
-    if (!otpToken || !selectedImage) {
-      Alert.alert('OTP required', 'Verify your email before registering.');
+    if (!selectedImage) {
+      Alert.alert('Profile picture required', 'Upload a profile picture before registering.');
       return;
     }
 
@@ -204,7 +128,6 @@ export default function Register() {
       formData.append('email', normalizedEmail);
       formData.append('username', normalizedUsername);
       formData.append('password', password);
-      formData.append('otpToken', otpToken);
 
       if (Platform.OS === 'web' && selectedImage.file) {
         formData.append('profilePicture', selectedImage.file);
@@ -241,8 +164,8 @@ export default function Register() {
         <View style={styles.stack}>
           <View style={styles.heroWrap}>
             <Text style={styles.brand}>New account</Text>
-            <Text style={styles.title}>Register with email OTP</Text>
-            <Text style={styles.subtitle}>Create your account, verify your inbox, and join the conversation.</Text>
+            <Text style={styles.title}>Create your account</Text>
+            <Text style={styles.subtitle}>Choose your login details and join the conversation.</Text>
           </View>
 
           <AppCard>
@@ -285,28 +208,6 @@ export default function Register() {
               placeholder="Re-enter password"
               secureTextEntry
             />
-
-            <AppButton variant="secondary" onPress={sendOtp} disabled={sendingOtp} leftIcon="mail-outline">
-              {sendingOtp ? 'Sending OTP...' : 'Send OTP'}
-            </AppButton>
-
-            <AppInput
-              label="Email OTP"
-              value={otpCode}
-              onChangeText={setOtpCode}
-              placeholder="Enter 6-digit OTP"
-              keyboardType="number-pad"
-              maxLength={6}
-            />
-
-            <AppButton
-              variant="secondary"
-              onPress={verifyOtp}
-              disabled={verifyingOtp}
-              leftIcon="checkmark-circle-outline"
-            >
-              {verifyingOtp ? 'Verifying OTP...' : 'Verify OTP'}
-            </AppButton>
 
             <AppButton onPress={register} disabled={!canRegister || registering} leftIcon="sparkles-outline">
               {registering ? 'Creating account...' : 'Register'}
