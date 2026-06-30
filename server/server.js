@@ -648,7 +648,16 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('sendMessage', async (data) => {
+  socket.on('sendMessage', async (data, acknowledge) => {
+    const sendAcknowledgement = (payload) => {
+      if (typeof acknowledge === 'function') {
+        acknowledge(payload);
+        return true;
+      }
+
+      return false;
+    };
+
     try {
       const {
         text,
@@ -666,13 +675,15 @@ io.on('connection', (socket) => {
         : 'text';
 
       if ((!normalizedText && !mediaUrl) || !normalizedReceiver) {
+        sendAcknowledgement({ success: false, error: 'Message text or attachment is required.' });
         return;
       }
 
       if (normalizedText.length > MAX_MESSAGE_TEXT_LENGTH) {
-        socket.emit('messageError', {
-          error: `Messages can contain up to ${MAX_MESSAGE_TEXT_LENGTH} characters.`,
-        });
+        const error = `Messages can contain up to ${MAX_MESSAGE_TEXT_LENGTH} characters.`;
+        if (!sendAcknowledgement({ success: false, error })) {
+          socket.emit('messageError', { error });
+        }
         return;
       }
 
@@ -682,12 +693,18 @@ io.on('connection', (socket) => {
       ]);
 
       if (blocked) {
-        socket.emit('messageError', { error: 'Messaging is unavailable for this user.' });
+        const error = 'Messaging is unavailable for this user.';
+        if (!sendAcknowledgement({ success: false, error })) {
+          socket.emit('messageError', { error });
+        }
         return;
       }
 
       if (!connected) {
-        socket.emit('messageError', { error: 'You can only message accepted contacts.' });
+        const error = 'You can only message accepted contacts.';
+        if (!sendAcknowledgement({ success: false, error })) {
+          socket.emit('messageError', { error });
+        }
         return;
       }
 
@@ -713,9 +730,15 @@ io.on('connection', (socket) => {
         io.to(receiverSocket).emit('receiveMessage', safeMessage(message));
       }
 
-      socket.emit('receiveMessage', safeMessage(message));
+      const outgoingMessage = safeMessage(message);
+      socket.emit('receiveMessage', outgoingMessage);
+      sendAcknowledgement({ success: true, message: outgoingMessage });
     } catch (error) {
       logError('Error saving message:', error);
+      const message = 'Could not send this message right now. Please try again.';
+      if (!sendAcknowledgement({ success: false, error: message })) {
+        socket.emit('messageError', { error: message });
+      }
     }
   });
 

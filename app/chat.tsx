@@ -42,6 +42,12 @@ type Message = {
   readAt?: string | null;
 };
 
+type SendMessageAck = {
+  success: boolean;
+  message?: Message;
+  error?: string;
+};
+
 type FriendSummary = {
   _id: string;
   name: string;
@@ -93,6 +99,7 @@ export default function Chat() {
   const [friend, setFriend] = useState<FriendSummary | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [isSendingFile, setIsSendingFile] = useState(false);
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -268,19 +275,72 @@ export default function Chat() {
     });
   };
 
-  const sendMessage = () => {
-    if (!message.trim() || !currentUser._id || !user || isUploading) {
+  const appendMessage = (nextMessage: Message) => {
+    setMessages((prev) => {
+      if (nextMessage._id && prev.some((item) => item._id === nextMessage._id)) {
+        return prev;
+      }
+
+      return [...prev, nextMessage];
+    });
+  };
+
+  const emitMessage = (payload: {
+    text: string;
+    receiver: string;
+    messageType?: 'text' | 'image' | 'file';
+    mediaUrl?: string;
+    mediaName?: string;
+    mediaMimeType?: string;
+    mediaSize?: number;
+  }) =>
+    new Promise<SendMessageAck>((resolve, reject) => {
+      if (!socket.connected) {
+        socket.connect();
+      }
+
+      socket.timeout(12000).emit('sendMessage', payload, (error: Error | null, response?: SendMessageAck) => {
+        if (error) {
+          reject(new Error('Cannot reach the chat server. Please check your connection and try again.'));
+          return;
+        }
+
+        if (!response?.success) {
+          reject(new Error(response?.error || 'Could not send this message.'));
+          return;
+        }
+
+        resolve(response);
+      });
+    });
+
+  const sendMessage = async () => {
+    const outgoingText = message.trim();
+
+    if (!outgoingText || !currentUser._id || !user || isUploading || isSendingMessage) {
       return;
     }
 
-    socket.emit('sendMessage', {
-      text: message.trim(),
-      receiver: user,
-      messageType: 'text',
-    });
+    setIsSendingMessage(true);
 
-    stopTyping();
-    setMessage('');
+    try {
+      const response = await emitMessage({
+        text: outgoingText,
+        receiver: user,
+        messageType: 'text',
+      });
+
+      if (response.message) {
+        appendMessage(response.message);
+      }
+
+      stopTyping();
+      setMessage('');
+    } catch (error) {
+      Alert.alert('Message failed', error instanceof Error ? error.message : 'Could not send this message.');
+    } finally {
+      setIsSendingMessage(false);
+    }
   };
 
   const uploadAndSend = async (asset: {
@@ -316,13 +376,20 @@ export default function Chat() {
         },
       });
 
-      socket.emit('sendMessage', {
+      const response = await emitMessage({
         text: '',
         receiver: user,
         ...uploadResponse.data,
       });
+
+      if (response.message) {
+        appendMessage(response.message);
+      }
     } catch (error: any) {
-      Alert.alert('Upload failed', getApiErrorMessage(error, 'Could not upload this attachment.'));
+      Alert.alert(
+        'Send failed',
+        error instanceof Error ? error.message : getApiErrorMessage(error, 'Could not upload this attachment.')
+      );
     } finally {
       setIsUploading(false);
       setIsSendingFile(false);
@@ -520,15 +587,18 @@ export default function Chat() {
                 multiline
               />
               <TouchableOpacity
-                style={[styles.sendBubble, (!message.trim() || isUploading) && styles.sendBubbleDisabled]}
+                style={[
+                  styles.sendBubble,
+                  (!message.trim() || isUploading || isSendingMessage) && styles.sendBubbleDisabled,
+                ]}
                 onPress={sendMessage}
-                disabled={!message.trim() || isUploading}
+                disabled={!message.trim() || isUploading || isSendingMessage}
                 activeOpacity={0.9}
               >
                 <Ionicons
-                  name={isUploading ? 'cloud-upload-outline' : 'arrow-up-outline'}
+                  name={isUploading || isSendingMessage ? 'cloud-upload-outline' : 'arrow-up-outline'}
                   size={20}
-                  color={(!message.trim() || isUploading) ? theme.colors.textSoft : theme.colors.accentText}
+                  color={(!message.trim() || isUploading || isSendingMessage) ? theme.colors.textSoft : theme.colors.accentText}
                 />
               </TouchableOpacity>
             </View>
